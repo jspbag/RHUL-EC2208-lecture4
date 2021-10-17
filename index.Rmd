@@ -1,0 +1,570 @@
+---
+pagetitle: The multiple regression model
+output: 
+  revealjs::revealjs_presentation:
+    incremental: false
+    theme: solarized
+    self_contained: false
+    reveal_plugins: ["notes","chalkboard"]
+    highlight: pygments
+    center: true
+    transition: none
+    background_transition: none 
+    reveal_options:
+      # chalkboard:
+      #   theme: whiteboard
+      #   toggleNotesButton: true
+      #   toggleChalkboardButton: true
+      menu:
+        numbers: true
+      slideNumber: true
+      previewLinks: false
+    fig_caption: true
+    pandoc_args:
+    - --indented-code-classes
+    - lineNumbers
+    css: mystyle.css
+    
+--- 
+
+<section>
+
+<h1>The multiple regression model</h1>
+
+Based on Stock and Watson, ch. 6
+
+<br>
+
+<h2>[Jesper Bagger](mailto:jesper.bagger@rhul.ac.uk)</h2>
+
+<h3>EC2208| Royal Holloway | 2021/22</h3>
+
+</section>
+
+
+```{r results='asis', echo=FALSE, include=FALSE}
+library(AER) # load Applied Econometrics with R library
+library(parameters) # Load parameters library for robust SE computation
+data(CASchools) # Load CASchools data
+# Generate a couple of useful variables
+CASchools$STR <- CASchools$students/CASchools$teachers  # Student-teacher ratio
+CASchools$Score <- (CASchools$read + CASchools$math)/2  # Student test score
+```
+
+# The multiple linear regression model
+
+## The population regression function with two regressors
+
+- Test score, $Score$, depends on class size, $STR$, and percentage with English as a second language, $Eng$
+
+- Consider the linear population regression function
+
+  $$\mathrm{E}(Score|STR,English) = \beta_0 + \beta_1 STR + \beta_2 Eng$$
+
+- The regression function is the relationship b/w $Score$, $STR$ and $Eng$ that holds on average 
+
+## Interpreting the slope coefficients 
+
+- Consider predictions for two observations w/ same values of $Eng$, but values of $STR$ that differ by $\Delta$; then,
+
+$$\beta_1 = \frac{\mathrm{E}(Score|STR+\Delta,Eng)  - \mathrm{E}(Score|STR,Eng)}{\Delta}$$
+  
+- $\beta_1$ is difference in predicted $Score$ b/w observations w/ unit difference in $STR$, holding $Eng$ constant
+
+## The error term
+
+<!-- - Let $u$ be the **error term**: the error made when predicting $Y$ by its conditional mean; that is, $u \equiv Y - \mathrm{E}(Y|X_1,X_2)$ -->
+
+- $u$ is the prediction error:
+
+  $$u \equiv Score - \mathrm{E}(Score|STR,Eng)$$
+
+- Multiple population regression model:
+
+  $$Score = \beta_0 + \beta_1 STR +  \beta_2 Eng + u$$
+
+- The error term $u$ contains all determinants of $Score$ that are not $STR$ nor $Eng$
+
+- The multiple regression model generalizes easily to encompass $K$ regressors
+
+## The OLS estimator in multiple linear regression
+
+- Estimation problem: learn about $\beta_0$, $\beta_1$, and $\beta_2$ from random sample from the population
+
+  $$(Score_i,STR_{i},Eng_{i}; i=1,...,n)$$
+
+- We study the OLS estimators $\hat{\beta}_0$, $\hat{\beta}_1$, and $\hat{\beta}_2$ (see pre-recorded lectures for details)
+
+
+## Implementing the OLS estimator in R
+
+```{r echo=TRUE, error=FALSE, warning=FALSE, out.width = "70%"}
+
+mlr <- lm(Score ~ STR + english, data = CASchools)
+summary(mlr)
+```
+
+## ... with robust standard errors
+
+```{r echo=TRUE, error=FALSE, warning=FALSE, out.width = "70%"}
+parameters(mlr, robust = TRUE, vcov_type = "HC1")
+```
+
+
+# Better predictions
+
+## Simple regression predictions
+
+$$\hat{Score}_i = \hat{\beta}_0 + \hat{\beta}_1 STR_i; \quad i = 1,2,...,n$$
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "70%"}
+lm1 <- lm(Score ~ STR,data= CASchools)
+plot(CASchools$Score,lm1$fitted.values, 
+     col = "blue",
+     xlab = "Test score", 
+     ylab = "Fitted values", 
+     xlim = c(600, 720), 
+     ylim = c(600, 720))
+abline(0,1,
+       lwd = 3,
+       lty = "dashed",
+       col = "gray")
+legend("bottomright", inset = 0.02, c("45-degree line","Predictions based on STR"),col=c("gray","blue"),pch=c(NA,1),lty=c(2,NA),lwd = c(3,NA))
+```
+
+
+## Multiple regression predictions
+
+$$\hat{Score}_i = \hat{\beta}_0 + \hat{\beta}_1 STR_i +  \hat{\beta}_2 Eng_i; \quad i = 1,2,...,n$$
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "70%"}
+plot(CASchools$Score,lm1$fitted.values, 
+     col = "blue",
+     xlab = "Test score", 
+     ylab = "Fitted values", 
+     xlim = c(600, 720), 
+     ylim = c(600, 720))
+points(CASchools$Score,mlr$fitted.values, 
+     col = "red")
+abline(0,1,
+       lwd = 3,
+       lty = "dashed",
+       col = "gray")
+legend("bottomright", inset = 0.02, c("45-degree line","Predictions based on STR","Predictions based on STR and English"),col=c("gray","blue","red"),pch=c(NA,1,1),lty=c(2,NA,NA),lwd = c(3,NA,NA))
+```
+
+## Adjusted $R^2$
+
+- Adding additional regressors always increases the fit of the regression (i.e. always lead to better in-sample predictions)
+
+  - $R^2$ always improve when adding regressors
+
+- May lead to "over-fit" of peculiarities of the sample, not improve ability to predict out-of-sample
+
+- Goodness-of-fit measures in multiple regression must reflect this trade-off:
+
+  $$\overline{R}^2 = 1-\frac{n-1}{n-k-1} \frac{SSR}{TSS}$$
+  
+  where $k$ is number of regressors (excluding the constant)
+
+# Control for confounding effects
+
+## Test scores and student-teacher ratio
+
+$$Score_i = \beta_0 + \beta_1 STR_i + u_i; \quad i = 1,2,...,n$$
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "70%"}
+plot(CASchools$STR,CASchools$Score, 
+     col = "blue",
+     xlab = "Student-teacher ratio", 
+     ylab = "Test score", 
+     xlim = c(10, 30), 
+     ylim = c(600, 720))
+abline(lm1,
+       lwd = 3,
+       col = "red")
+```
+
+## Test scores and percentage of English learners
+
+$$Score_i = \beta_0 + \beta_1 Eng_i + u_i; \quad i = 1,2,...,n$$
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "70%"}
+lm2 <- lm(Score ~ english,data= CASchools)
+plot(CASchools$english,CASchools$Score, 
+     col = "blue",
+     xlab = "Learning English", 
+     ylab = "Test score", 
+     xlim = c(0, 100), 
+     ylim = c(600, 720))
+abline(lm2,
+       lwd = 3,
+       col = "red")
+```
+
+## Percentage of English learners and student-teacher ratio
+
+$$Eng_i = \beta_0 + \beta_1 STR_i + u_i; \quad i = 1,2,...,n$$
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "70%"}
+lm3 <- lm(english ~ STR,data= CASchools)
+plot(CASchools$STR,CASchools$english, 
+     col = "blue",
+     xlab = "Student-teacher ratio", 
+     ylab = "Learning English", 
+     xlim = c(10, 30), 
+     ylim = c(0, 100))
+abline(lm3,
+       lwd = 3,
+       col = "red")
+```
+
+
+## Test scores, student-teacher ratio, and percentage of English learners
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "80%"}
+par(mfrow=c(1,3))
+
+plot(CASchools$STR,CASchools$Score, 
+     col = "blue",
+     xlab = "Student-teacher ratio", 
+     ylab = "Test score", 
+     xlim = c(10, 30), 
+     ylim = c(600, 720))
+abline(lm1,
+       lwd = 3,
+       col = "red")
+
+plot(CASchools$english,CASchools$Score, 
+     col = "blue",
+     xlab = "Learning English", 
+     ylab = "Test score", 
+     xlim = c(0, 100), 
+     ylim = c(600, 720))
+abline(lm2,
+       lwd = 3,
+       col = "red")
+
+plot(CASchools$STR,CASchools$english, 
+     col = "blue",
+     xlab = "Student-teacher ratio", 
+     ylab = "Learning English", 
+     xlim = c(10, 30), 
+     ylim = c(0, 100))
+abline(lm3,
+       lwd = 3,
+       col = "red")
+```
+
+
+<!-- ## Holding Percentage English learners constant -->
+
+<!-- All districts  -->
+
+<!-- ```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "70%"} -->
+<!-- # Scatter plots of STR, Score and english data -->
+<!-- par(mfrow=c(1,2))  -->
+<!-- # STR vs Score -->
+<!-- plot(CASchools$STR,CASchools$Score, -->
+<!--      xlab = "Student-teacher ratio", -->
+<!--      ylab = "Test score", -->
+<!--      col = "gray", -->
+<!--      xlim = c(10, 30), -->
+<!--      ylim = c(600, 720)) -->
+<!-- abline(lm1, -->
+<!--        lwd = 3, -->
+<!--        col = "gray") -->
+<!-- # STR vs english -->
+<!-- plot(CASchools$STR,CASchools$english, -->
+<!--      col = "gray", -->
+<!--      xlab = "Student-teacher ratio", -->
+<!--      ylab = "Learning English", -->
+<!--      xlim = c(10, 30), -->
+<!--      ylim = c(0, 100)) -->
+<!-- abline(lm3, -->
+<!--        lwd = 3, -->
+<!--        col = "gray") -->
+<!-- ``` -->
+
+<!-- ## Holding Percentage English learners constant -->
+
+<!-- Districts where percentage learning English $\leq$ 1.9% -->
+
+<!-- ```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "80%"} -->
+<!-- # Select dataframe subset with based on english -->
+<!-- CASchools1 <- subset(CASchools, english < 1.9) -->
+<!-- CASchools2 <- subset(CASchools, english >= 1.9 & english < 8.8) -->
+<!-- CASchools3 <- subset(CASchools, english >= 8.8 & english < 23) -->
+<!-- CASchools4 <- subset(CASchools, english >= 23) -->
+<!-- # Run regression of Score onto STR in each subsample -->
+<!-- lm1.1 <- lm(Score ~ STR, data = CASchools1) # Score onto STR in CASchools1 -->
+<!-- lm1.2 <- lm(Score ~ STR, data = CASchools2) # Score onto STR in CASchools2 -->
+<!-- lm1.3 <- lm(Score ~ STR, data = CASchools3) # Score onto STR in CASchools3 -->
+<!-- lm1.4 <- lm(Score ~ STR, data = CASchools4) # Score onto STR in CASchools4 -->
+<!-- # Run regression of english onto STR in each subsample -->
+<!-- lm3.1 <- lm(english ~ STR, data = CASchools1) # english onto STR in CASchools1 -->
+<!-- lm3.2 <- lm(english ~ STR, data = CASchools2) # english onto STR in CASchools2 -->
+<!-- lm3.3 <- lm(english ~ STR, data = CASchools3) # english onto STR in CASchools3 -->
+<!-- lm3.4 <- lm(english ~ STR, data = CASchools4) # english onto STR in CASchools4 -->
+<!-- # Scatter plots of STR, Score and english data -->
+<!-- par(mfrow=c(1,2))  -->
+<!-- # STR vs Score -->
+<!-- plot(CASchools$STR,CASchools$Score, -->
+<!--      xlab = "Student-teacher ratio", -->
+<!--      ylab = "Test score", -->
+<!--      col = "gray", -->
+<!--      xlim = c(10, 30), -->
+<!--      ylim = c(600, 720)) -->
+<!-- abline(lm1, -->
+<!--        lwd = 3, -->
+<!--        col = "gray") -->
+<!-- points(CASchools1$STR,CASchools1$Score, -->
+<!--        col = "blue") -->
+<!-- abline(lm1.1, -->
+<!--        lwd = 3, -->
+<!--        col = "blue") -->
+<!-- # STR vs english -->
+<!-- plot(CASchools$STR,CASchools$english, -->
+<!--      col = "gray", -->
+<!--      xlab = "Student-teacher ratio", -->
+<!--      ylab = "Learning English", -->
+<!--      xlim = c(10, 30), -->
+<!--      ylim = c(0, 100)) -->
+<!-- abline(lm3, -->
+<!--        lwd = 3, -->
+<!--        col = "gray") -->
+<!-- points(CASchools1$STR,CASchools1$english, -->
+<!--        col = "blue") -->
+<!-- abline(lm3.1, -->
+<!--        lwd = 3, -->
+<!--        col = "blue") -->
+
+<!-- ``` -->
+
+<!-- ## Holding Percentage English learners constant -->
+
+<!-- Districts where percentage learning English b/w 1.9%-8.8% -->
+
+<!-- ```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "80%"} -->
+<!-- # Scatter plots of STR, Score and english data -->
+<!-- par(mfrow=c(1,2))  -->
+<!-- # STR vs Score -->
+<!-- plot(CASchools$STR,CASchools$Score, -->
+<!--      xlab = "Student-teacher ratio", -->
+<!--      ylab = "Test score", -->
+<!--      col = "gray", -->
+<!--      xlim = c(10, 30), -->
+<!--      ylim = c(600, 720)) -->
+<!-- abline(lm1, -->
+<!--        lwd = 3, -->
+<!--        col = "gray") -->
+<!-- points(CASchools1$STR,CASchools1$Score, -->
+<!--        col = "blue") -->
+<!-- abline(lm1.1, -->
+<!--        lwd = 3, -->
+<!--        col = "blue") -->
+<!-- points(CASchools2$STR,CASchools2$Score, -->
+<!--        col = "red") -->
+<!-- abline(lm1.2, -->
+<!--        lwd = 3, -->
+<!--        col = "red") -->
+<!-- # STR vs english -->
+<!-- plot(CASchools$STR,CASchools$english, -->
+<!--      col = "gray", -->
+<!--      xlab = "Student-teacher ratio", -->
+<!--      ylab = "Learning English", -->
+<!--      xlim = c(10, 30), -->
+<!--      ylim = c(0, 100)) -->
+<!-- abline(lm3, -->
+<!--        lwd = 3, -->
+<!--        col = "gray") -->
+<!-- points(CASchools1$STR,CASchools1$english, -->
+<!--        col = "blue") -->
+<!-- abline(lm3.1, -->
+<!--        lwd = 3, -->
+<!--        col = "blue") -->
+<!-- points(CASchools2$STR,CASchools2$english, -->
+<!--        col = "red") -->
+<!-- abline(lm3.2, -->
+<!--        lwd = 3, -->
+<!--        col = "red") -->
+
+<!-- ``` -->
+
+<!-- ## Holding Percentage English learners constant -->
+
+<!-- Districts where percentage learning English b/w 8.8%-23% -->
+
+<!-- ```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "80%"} -->
+<!-- # Scatter plots of STR, Score and english data -->
+<!-- par(mfrow=c(1,2))  -->
+<!-- # STR vs Score -->
+<!-- plot(CASchools$STR,CASchools$Score, -->
+<!--      xlab = "Student-teacher ratio", -->
+<!--      ylab = "Test score", -->
+<!--      col = "gray", -->
+<!--      xlim = c(10, 30), -->
+<!--      ylim = c(600, 720)) -->
+<!-- abline(lm1, -->
+<!--        lwd = 3, -->
+<!--        col = "gray") -->
+<!-- points(CASchools1$STR,CASchools1$Score, -->
+<!--        col = "blue") -->
+<!-- abline(lm1.1, -->
+<!--        lwd = 3, -->
+<!--        col = "blue") -->
+<!-- points(CASchools2$STR,CASchools2$Score, -->
+<!--        col = "red") -->
+<!-- abline(lm1.2, -->
+<!--        lwd = 3, -->
+<!--        col = "red") -->
+<!-- points(CASchools3$STR,CASchools3$Score, -->
+<!--        col = "orange") -->
+<!-- abline(lm1.3, -->
+<!--        lwd = 3, -->
+<!--        col = "orange") -->
+<!-- # STR vs english -->
+<!-- plot(CASchools$STR,CASchools$english, -->
+<!--      col = "gray", -->
+<!--      xlab = "Student-teacher ratio", -->
+<!--      ylab = "Learning English", -->
+<!--      xlim = c(10, 30), -->
+<!--      ylim = c(0, 100)) -->
+<!-- abline(lm3, -->
+<!--        lwd = 3, -->
+<!--        col = "gray") -->
+<!-- points(CASchools1$STR,CASchools1$english, -->
+<!--        col = "blue") -->
+<!-- abline(lm3.1, -->
+<!--        lwd = 3, -->
+<!--        col = "blue") -->
+<!-- points(CASchools2$STR,CASchools2$english, -->
+<!--        col = "red") -->
+<!-- abline(lm3.2, -->
+<!--        lwd = 3, -->
+<!--        col = "red") -->
+<!-- points(CASchools3$STR,CASchools3$english, -->
+<!--        col = "orange") -->
+<!-- abline(lm3.3, -->
+<!--        lwd = 3, -->
+<!--        col = "orange") -->
+
+<!-- ``` -->
+
+<!-- ## Holding Percentage English learners constant -->
+
+<!-- Districts where percentage learning English $>$ 23% -->
+
+<!-- ```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "80%"} -->
+<!-- # Scatter plots of STR, Score and english data -->
+<!-- par(mfrow=c(1,2))  -->
+<!-- # STR vs Score -->
+<!-- plot(CASchools$STR,CASchools$Score, -->
+<!--      xlab = "Student-teacher ratio", -->
+<!--      ylab = "Test score", -->
+<!--      col = "gray", -->
+<!--      xlim = c(10, 30), -->
+<!--      ylim = c(600, 720)) -->
+<!-- abline(lm1, -->
+<!--        lwd = 3, -->
+<!--        col = "gray") -->
+<!-- points(CASchools1$STR,CASchools1$Score, -->
+<!--        col = "blue") -->
+<!-- abline(lm1.1, -->
+<!--        lwd = 3, -->
+<!--        col = "blue") -->
+<!-- points(CASchools2$STR,CASchools2$Score, -->
+<!--        col = "red") -->
+<!-- abline(lm1.2, -->
+<!--        lwd = 3, -->
+<!--        col = "red") -->
+<!-- points(CASchools3$STR,CASchools3$Score, -->
+<!--        col = "orange") -->
+<!-- abline(lm1.3, -->
+<!--        lwd = 3, -->
+<!--        col = "orange") -->
+<!-- points(CASchools4$STR,CASchools4$Score, -->
+<!--        col = "green") -->
+<!-- abline(lm1.4, -->
+<!--        lwd = 3, -->
+<!--        col = "green") -->
+<!-- # STR vs english -->
+<!-- plot(CASchools$STR,CASchools$english, -->
+<!--      col = "gray", -->
+<!--      xlab = "Student-teacher ratio", -->
+<!--      ylab = "Learning English", -->
+<!--      xlim = c(10, 30), -->
+<!--      ylim = c(0, 100)) -->
+<!-- abline(lm3, -->
+<!--        lwd = 3, -->
+<!--        col = "gray") -->
+<!-- points(CASchools1$STR,CASchools1$english, -->
+<!--        col = "blue") -->
+<!-- abline(lm3.1, -->
+<!--        lwd = 3, -->
+<!--        col = "blue") -->
+<!-- points(CASchools2$STR,CASchools2$english, -->
+<!--        col = "red") -->
+<!-- abline(lm3.2, -->
+<!--        lwd = 3, -->
+<!--        col = "red") -->
+<!-- points(CASchools3$STR,CASchools3$english, -->
+<!--        col = "orange") -->
+<!-- abline(lm3.3, -->
+<!--        lwd = 3, -->
+<!--        col = "orange") -->
+<!-- points(CASchools4$STR,CASchools4$english, -->
+<!--        col = "green") -->
+<!-- abline(lm3.4, -->
+<!--        lwd = 3, -->
+<!--        col = "green") -->
+
+<!-- ``` -->
+
+<!-- ## Holding Percentage English learners constant (cont'd) -->
+
+<!-- $$Score_i = \beta_0 + \beta_1 STR_i + u_i; \quad i=1,2,...,n$$ -->
+
+<!-- |                                                             | $\hat{\beta}_0$              | $\hat{\beta}_1$            |  -->
+<!-- | ---------------                                             |--:                           | --:                        |  -->
+<!-- | All districts                                               | $\underset{(10.36)}{698.93}$ | $-\underset{(0.52)}{2.28}$ |  -->
+<!-- | Districts where percentage learning English $\leq$ 1.9%     | $\underset{(19.03)}{650.24}$ | $\underset{(0.98)}{0.77}$  |  -->
+<!-- | Districts where percentage learning English b/w 1.9%-8.8%   | $\underset{(16.90)}{700.75}$ | $-\underset{(0.82)}{1.87}$ |  -->
+<!-- | Districts where percentage learning English b/w 8.8%-23%    | $\underset{(18.16)}{695.87}$ | $-\underset{(0.92)}{2.20}$ |  -->
+<!-- | Districts where percentage learning English $>$ 23%         | $\underset{(15.57)}{653.07}$ | $-\underset{(0.76)}{0.87}$ |  -->
+
+## Multiple regression analysis
+
+$$Score_i = \beta_0 + \beta_1 STR_i + \beta_2 Eng_i + u_i; \quad i = 1,2,...,n$$
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, out.width = "70%"}
+plot(CASchools$STR,CASchools$Score, 
+     col = "blue",
+     xlab = "Student-teacher ratio", 
+     ylab = "Test score", 
+     xlim = c(10, 30), 
+     ylim = c(600, 720))
+abline(lm1,
+       lwd = 3,
+       col = "red")
+abline(mlr$coefficients["(Intercept)"],mlr$coefficients["STR"],
+       lwd = 3,
+       col = "green")
+legend("bottomright", inset = 0.02, c("Data","Score on STR","Score on STR and English"),col=c("blue","red","green"),pch=c(1,NA,NA),lty=c(NA,1,1),lwd = c(NA,1,1))
+```
+
+# Summary
+
+## Summary
+
+- The multiple regression model is a linear regression model w/ multiple regressors
+
+- Coefficients in multiple regression model are partial effects
+
+- The OLS minimizes sum of squared residuals, as in the simple linear regression model
+
+- The multiple regression model:
+
+  - Improved in-sample fit 
+  
+  - Controls for confounding effects
